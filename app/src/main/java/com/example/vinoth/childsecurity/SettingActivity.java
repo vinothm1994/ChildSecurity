@@ -13,11 +13,14 @@ import android.os.Bundle;
 import android.provider.Contacts;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -45,29 +48,37 @@ public class SettingActivity extends AppCompatActivity implements OnMapReadyCall
     private SharedPreferences sharedpreference;
     private ArrayList<LatLng> latLngs;
     private EditText etPhoneNumber;
+    private TextView tvPhone;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_setting);
-
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        }
          sharedpreference=getSharedPreferences("mydata", Context.MODE_PRIVATE);
          latLngs =new ArrayList<LatLng>();
 
          polygonOptions =new PolygonOptions();
         etPhoneNumber=(EditText)findViewById(R.id.etPhoneNumber);
+        tvPhone = (TextView) findViewById(R.id.tvPhone);
+        String number = sharedpreference.getString("PHONENO", "");
+        if (!TextUtils.isEmpty(number))
+            tvPhone.setText("Current PhoneNo:" + number);
+
     }
 
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(10.7386662, 76.3039002), 6.0f));
+
 
         // Add a marker in Sydney and move the camera
         googleMap.isMyLocationEnabled();
@@ -118,6 +129,7 @@ public class SettingActivity extends AppCompatActivity implements OnMapReadyCall
         prefsEditor.putString("MyObject", json);
         prefsEditor.commit();
         String phone=etPhoneNumber.getText().toString();
+        if (!TextUtils.isEmpty(phone))
         prefsEditor.putString("PHONENO", phone);
         prefsEditor.commit();
 
@@ -146,12 +158,17 @@ public class SettingActivity extends AppCompatActivity implements OnMapReadyCall
                 if (resultCode == Activity.RESULT_OK) {
                     Uri contactData = data.getData();
                     Cursor c =  managedQuery(contactData, null, null, null, null);
-                    startManagingCursor(c);
                     if (c.moveToFirst()) {
                         String name = c.getString(c.getColumnIndexOrThrow(Contacts.People.NAME));
                         String number = c.getString(c.getColumnIndexOrThrow(Contacts.People.NUMBER));
                         Toast.makeText(this,  name + " has number " + number, Toast.LENGTH_LONG).show();
+                        if (!TextUtils.isEmpty(number)) {
+                            tvPhone.setText("Current PhoneNo:" + number);
+                            etPhoneNumber.setText(number);
+
+                        }
                     }
+
                 }
                 break;
         }

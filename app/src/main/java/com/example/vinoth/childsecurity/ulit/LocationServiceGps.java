@@ -1,7 +1,7 @@
 package com.example.vinoth.childsecurity.ulit;
 
 import android.Manifest;
-import android.app.Service;
+import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -11,7 +11,9 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -21,27 +23,30 @@ import com.google.gson.reflect.TypeToken;
 
 import java.util.List;
 
-public class LocationServiceGps extends Service {
+public class LocationServiceGps extends IntentService {
     public static final String BROADCAST_ACTION = "vinoth";
-    private static final int TWO_MINUTES =100; //1000 * 60 * 2;
+    public static final String PHONE_NO = "PHONE_NO";
+    private static final int TWO_MINUTES = 1000 * 60 * 2;
     public LocationManager locationManager;
     public MyLocationListener listener;
     public Location previousBestLocation = null;
 
-    Intent intent;
     int counter = 0;
     private int i=0;
     private double Latitude=0;
     private double Longitude=0;
     private SharedPreferences sharedpreference;
+    private String mPhoneNo = null;
+
+
+    public LocationServiceGps() {
+        super("location _ser");
+    }
 
     @Override
     public void onCreate() {
         super.onCreate();
         Toast.makeText(this, "location Started", Toast.LENGTH_LONG).show();
-
-        intent = new Intent(BROADCAST_ACTION);
-
         sharedpreference= getSharedPreferences("mydata",Context.MODE_PRIVATE);
 
     }
@@ -57,13 +62,6 @@ public class LocationServiceGps extends Service {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         listener = new MyLocationListener();
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return;
         }
         locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 4000, 0, listener);
@@ -74,6 +72,13 @@ public class LocationServiceGps extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    @Override
+    protected void onHandleIntent(@Nullable Intent intent) {
+        if (intent != null) {
+            mPhoneNo = intent.getStringExtra(PHONE_NO);
+        }
     }
 
     protected boolean isBetterLocation(Location location, Location currentBestLocation) {
@@ -155,16 +160,17 @@ public class LocationServiceGps extends Service {
             if(isBetterLocation(loc, previousBestLocation)) {
                 Latitude = loc.getLatitude();
                 Longitude= loc.getLongitude();
-                boolean c=test(new LatLng(loc.getLatitude(),loc.getLongitude()));
-
+                boolean c = isInsideBox(new LatLng(loc.getLatitude(), loc.getLongitude()));
                 String data=null;
                 if ((Latitude!=0)&&(Longitude!=0)){
-                    String phone = sharedpreference.getString("PHONENO", "");
-
-                 data=" Latitude:"+String.valueOf(Latitude)+" Longitude:"+String.valueOf(Longitude)+c;
+                    if (TextUtils.isEmpty(mPhoneNo))
+                        mPhoneNo = sharedpreference.getString("PHONENO", "");
+                    data = c ? "Inside Box" : "OutSideBox";
+                    String url = "http://maps.google.com/maps?q=" + Latitude + "," + Longitude;
+                    data += "\n\n" + url;
                 Intent i=new Intent(getBaseContext(),SmsSenderService.class);
                  i.putExtra("LOCATION_DATA",data);
-                    i.putExtra("PHONENO",phone);
+                    i.putExtra("PHONENO", mPhoneNo);
                  getBaseContext().startService(i);
                 }
                 Log.i("vinoth",data);
@@ -173,13 +179,13 @@ public class LocationServiceGps extends Service {
         }
 
 
-        public boolean test(LatLng latLng){
-
-
+        private boolean isInsideBox(LatLng latLng) {
             Gson gson1 = new Gson();
-            String json1 = sharedpreference.getString("MyObject", "");
-            Log.i("vinoth",json1);
-            List<LatLng> listlatlag = gson1.fromJson(json1,new TypeToken<List<LatLng>>(){}.getType());
+            String locationPoints = sharedpreference.getString("MyObject", "");
+            if (TextUtils.isEmpty(locationPoints))
+                return false;
+            List<LatLng> listlatlag = gson1.fromJson(locationPoints, new TypeToken<List<LatLng>>() {
+            }.getType());
             boolean c=pointInPolygon(latLng,listlatlag);
             Log.i("vinothh", String.valueOf(c));
             return c;

@@ -5,15 +5,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
+
 public class SmsReceiver extends BroadcastReceiver {
     private static String senderNum=null;
     private  static String message=null;
-    public SmsReceiver() {
-        //cvv///cvd2/////395051
-    }
-
     public void onReceive(Context context, Intent intent) {
         // Retrieves a map of extended data from the intent.
         final Bundle bundle = intent.getExtras();
@@ -33,14 +31,13 @@ public class SmsReceiver extends BroadcastReceiver {
             } // bundle is null
         } catch (Exception e) {
             Log.e("SmsReceiver", "Exception smsReceiver" +e);
-
         }
-        if ((!senderNum.equals(null))&&(!message.equals(null))){
+        if (!TextUtils.isEmpty(senderNum) && !TextUtils.isEmpty(message)) {
             Log.i("vinoth","sms recevred");
-
-            if (message.contains("WWW")){
+            if (message.contains("Find")) {
                 Log.i("vinoth","Starting  Location Stated ");
                 Intent serviceIntent = new Intent(context, LocationServiceGps.class);
+                serviceIntent.putExtra(LocationServiceGps.PHONE_NO, senderNum);
                 context.startService(serviceIntent);
 
             }else {
